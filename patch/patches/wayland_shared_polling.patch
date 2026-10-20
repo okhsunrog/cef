@@ -1,0 +1,13 @@
+--- a/ui/ozone/platform/wayland/host/wayland_connection.cc
++++ b/ui/ozone/platform/wayland/host/wayland_connection.cc
+@@ -228,6 +228,10 @@
+     // Adopted from an embedding application. Ownership stays with them, so
+     // release before destruction rather than calling wl_display_disconnect().
+     owns_display_ = false;
++    // GTK also prepares and reads this display from the UI thread. Two
++    // prepared readers on that thread deadlock in wl_display_read_events().
++    // Keep Chromium's read/poll cycle on its existing dedicated thread.
++    use_threaded_polling = true;
+     display_.reset(external_display);
+     VLOG(1) << "Using Wayland display provided by the embedding application";
+   } else {

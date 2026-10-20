@@ -54,11 +54,13 @@ CefNativeWidgetDelegate::CefNativeWidgetDelegate(
     SkColor background_color,
     bool always_on_top,
     base::RepeatingClosure on_bounds_changed,
-    base::OnceClosure on_delete)
+    base::OnceClosure on_widget_destroying,
+    base::OnceClosure on_deleted)
     : background_color_(background_color),
       always_on_top_(always_on_top),
       on_bounds_changed_(std::move(on_bounds_changed)),
-      on_delete_(std::move(on_delete)) {}
+      on_widget_destroying_(std::move(on_widget_destroying)),
+      on_deleted_(std::move(on_deleted)) {}
 
 void CefNativeWidgetDelegate::Init(gfx::AcceleratedWidget parent_widget,
                                    content::WebContents* web_contents,
@@ -113,11 +115,15 @@ void CefNativeWidgetDelegate::WidgetIsZombie(views::Widget* widget) {
   contents_view_ = nullptr;
   web_view_ = nullptr;
 
+  if (!on_widget_destroying_.is_null()) {
+    std::move(on_widget_destroying_).Run();
+  }
+
   // This triggers deletion of contained Views.
   widget_.reset();
 
-  if (!on_delete_.is_null()) {
-    std::move(on_delete_).Run();
+  if (!on_deleted_.is_null()) {
+    std::move(on_deleted_).Run();
   }
 
   delete this;

@@ -28,7 +28,8 @@ class CefNativeWidgetDelegate : public views::WidgetDelegate {
   CefNativeWidgetDelegate(SkColor background_color,
                           bool always_on_top,
                           base::RepeatingClosure on_bounds_changed,
-                          base::OnceClosure on_delete);
+                          base::OnceClosure on_widget_destroying,
+                          base::OnceClosure on_deleted = {});
 
   CefNativeWidgetDelegate(const CefNativeWidgetDelegate&) = delete;
   CefNativeWidgetDelegate& operator=(const CefNativeWidgetDelegate&) = delete;
@@ -49,7 +50,10 @@ class CefNativeWidgetDelegate : public views::WidgetDelegate {
   const SkColor background_color_;
   const bool always_on_top_;
   base::RepeatingClosure on_bounds_changed_;
-  base::OnceClosure on_delete_;
+  // Clear external raw pointers before releasing the client-owned Widget.
+  base::OnceClosure on_widget_destroying_;
+  // Complete browser teardown only after the contained Views are gone.
+  base::OnceClosure on_deleted_;
 
   raw_ptr<views::View> contents_view_ = nullptr;
   raw_ptr<views::WebView> web_view_ = nullptr;

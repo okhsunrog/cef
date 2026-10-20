@@ -208,12 +208,13 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateWaylandHostWindow(
 
   auto* widget_delegate = new CefNativeWidgetDelegate(
       GetBackgroundColor(), /*always_on_top=*/false, GetBoundsChangedCallback(),
+      GetWidgetDeleteCallback(),
       // The widget going away is what completes the browser teardown here, the
       // way WM_NCDESTROY does on Windows and CefWindowX11 does on X11. Without
       // it CloseBrowser() never finishes.
       base::BindOnce(
           &CefBrowserPlatformDelegateNativeLinux::WaylandWidgetDeleted,
-          linux_weak_factory_.GetWeakPtr(), GetWidgetDeleteCallback()));
+          linux_weak_factory_.GetWeakPtr()));
   widget_delegate->Init(wayland_parent_widget_, web_contents_, rect);
 
   window_widget_ = widget_delegate->GetWidget();
@@ -255,9 +256,7 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateWaylandHostWindow(
   return true;
 }
 
-void CefBrowserPlatformDelegateNativeLinux::WaylandWidgetDeleted(
-    base::OnceClosure clear_widget) {
-  std::move(clear_widget).Run();
+void CefBrowserPlatformDelegateNativeLinux::WaylandWidgetDeleted() {
 
   // Only meaningful once the host window was fully created. A widget torn down
   // by a failed CreateWaylandHostWindow() has no reference to release and no

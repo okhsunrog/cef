@@ -55,7 +55,7 @@ class CefBrowserPlatformDelegateNativeLinux
   // Runs |clear_widget| and then completes the browser teardown. Bound as the
   // widget delete callback because on Wayland nothing else signals that the
   // host window is gone.
-  void WaylandWidgetDeleted(base::OnceClosure clear_widget);
+  void WaylandWidgetDeleted();
 #endif
 
   // True if the host window has been created.

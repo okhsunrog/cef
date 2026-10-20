@@ -1,0 +1,17 @@
+--- a/base/message_loop/message_pump_glib.cc
++++ b/base/message_loop/message_pump_glib.cc
+@@ -659,9 +659,11 @@
+ 
+ // Return the timeout we want passed to poll.
+ int MessagePumpGlib::HandlePrepare() {
+-  // |state_| may be null during tests.
+-  if (!state_) {
+-    return 0;
++  // An external CEF pump does not enter MessagePumpGlib::Run(), so the host
++  // GLib context can poll this source while state_ is null. HandleCheck() does
++  // not dispatch work in that state; allow the host to block instead of spin.
++  if (!state_) {
++    return -1;
+   }
+ 
+   const int next_wakeup_millis =

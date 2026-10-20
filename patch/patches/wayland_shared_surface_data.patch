@@ -1,0 +1,32 @@
+--- a/ui/ozone/platform/wayland/host/wayland_surface.cc
++++ b/ui/ozone/platform/wayland/host/wayland_surface.cc
+@@ -151,7 +151,10 @@
+   // Not having a root_window() means this is an icon_surface from
+   // WaylandDataDragController.
+   if (!root_window() || root_window()->root_surface() == this) {
+-    wl_surface_add_listener(surface_.get(), &kSurfaceListener, this);
++    // GTK examines wl_surface user data even for foreign surfaces on a shared
++    // display. A C++ WaylandSurface is not a GObject, so leave that slot null.
++    // Resolve our listener callbacks through the existing ownership registry.
++    wl_surface_add_listener(surface_.get(), &kSurfaceListener, nullptr);
+     // Registered under exactly the same condition that used to set the user
+     // data this replaces, so that RootWindowFromWlSurface() keeps resolving the
+     // same set of surfaces and no others.
+@@ -882,7 +885,7 @@
+ void WaylandSurface::OnEnter(void* data,
+                              wl_surface* surface,
+                              wl_output* output) {
+-  auto* self = static_cast<WaylandSurface*>(data);
++  auto* self = ChromiumSurfaceFor(surface);
+   DCHECK(self);
+ 
+   // The compositor can send a null output. See https://crbug.com/1332540.
+@@ -914,7 +917,7 @@
+ void WaylandSurface::OnLeave(void* data,
+                              wl_surface* surface,
+                              wl_output* output) {
+-  auto* self = static_cast<WaylandSurface*>(data);
++  auto* self = ChromiumSurfaceFor(surface);
+   DCHECK(self);
+ 
+   // The compositor can send a null output. See https://crbug.com/1332540.
