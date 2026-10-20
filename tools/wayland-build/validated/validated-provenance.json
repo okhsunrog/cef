@@ -1,0 +1,19 @@
+{
+  "cef_commit": "a09c27de3f5bb45f4cfb8656a46d85d272e1587e",
+  "cef_initial_wayland_commit": "edaadb655607aea65355ab46605b235e0928de38",
+  "chromium_version": "154.0.8037.98",
+  "experimental_api": 999999,
+  "api_hash": "a15420be190a255a6479f26806ed67fd59e1eeae",
+  "libcef_sha256": "6f3b732cecf21d0820e50778e2430bd5211fa1f606c9582c9836a76167fc6f31",
+  "chromium_runtime_patches": {
+    "gtk4_font_dpi": "9ce2d044598522b0c9c34f9e4aa59c60f13a64b1881679b383ac29396fcd2de1",
+    "lock_metrics_lazy_seed": "a79d95e418263291a495f52496988b5b2e4d9152293a0056bb977496117778c8",
+    "wayland_shared_output": "d01f12453067d66eb7a9f764045c48c0b18ea577143d98673210b3028d4342e3",
+    "wayland_shared_polling": "bdb5461dea7d410d50d309688404660caa49a3cc68b9eb420912329582596161",
+    "wayland_shared_surface_data": "4dac1c5e73d7ac87051b635ebc5133c1f279ed3205c4c968890a3e9a838797fb",
+    "glib_external_pump_idle": "a5614bd8f7b3650451ade993191f793c3f8d03a6d49a166241d70b59411f6ca1",
+    "wayland_shutdown_order": "38f5d234339776c1c8373861932abc5f36e25ce5db5835a10f2bfac6bd025e0f",
+    "wayland_threaded_watcher_shutdown": "670e18bda35e866b12817c9dec50da87591726f91386f7149c699bca376e75f0"
+  },
+  "remote_source_state": "edaadb655 plus applied changes equivalent to cef_commit; generated SDK version label is Unknown because the container git ownership check rejects version-label queries"
+}
