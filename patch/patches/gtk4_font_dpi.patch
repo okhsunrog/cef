@@ -1,0 +1,31 @@
+--- a/ui/gtk/gtk_ui.cc
++++ b/ui/gtk/gtk_ui.cc
+@@ -188,7 +188,7 @@
+   double resolution = 0;
+   if (const int dpi = GetXftDpi()) {
+     resolution = dpi / 1024.0;
+-  } else {
++  } else if (!GtkCheckVersion(4)) {
+     GdkScreen* screen = gdk_screen_get_default();
+     resolution = gdk_screen_get_resolution(screen);
+   }
+@@ -395,7 +395,9 @@
+   GtkSettings* settings = gtk_settings_get_default();
+   // Pin `gtk-modules` to an empty string with APPLICATION source priority
+   // to prevent XSETTINGS updates from loading GTK modules.
+-  g_object_set(settings, "gtk-modules", "", nullptr);
++  if (!GtkCheckVersion(4)) {
++    g_object_set(settings, "gtk-modules", "", nullptr);
++  }
+   SanitizeIconThemeName();
+   SanitizeThemeName();
+   SanitizeCursorThemeName();
+@@ -427,7 +429,7 @@
+   // Listen for DPI changes, if supported.
+   if (GetXftDpi() > 0) {
+     connect(settings, "notify::gtk-xft-dpi", &GtkUi::OnGtkXftDpiChanged);
+-  } else {
++  } else if (!GtkCheckVersion(4)) {
+     GdkScreen* screen = gdk_screen_get_default();
+     connect(screen, "notify::resolution", &GtkUi::OnScreenResolutionChanged);
+   }

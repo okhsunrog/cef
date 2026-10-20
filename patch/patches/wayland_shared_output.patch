@@ -1,0 +1,46 @@
+--- a/ui/ozone/platform/wayland/host/wayland_surface.cc
++++ b/ui/ozone/platform/wayland/host/wayland_surface.cc
+@@ -891,17 +891,18 @@
+     return;
+   }
+ 
+-  auto* wayland_output =
+-      static_cast<WaylandOutput*>(wl_output_get_user_data(output));
+-
+-  DCHECK_NE(self->connection_->wayland_output_manager()->GetOutput(
+-                wayland_output->output_id()),
+-            nullptr);
+-
+-  if (auto it = std::ranges::find(self->entered_outputs_,
+-                                  wayland_output->output_id());
++  // A shared display can also expose wl_output proxies bound by the host
++  // toolkit. Their user data is not a WaylandOutput and must not be cast as
++  // one. The compositor sends enter events for our own output binding too.
++  const auto output_id =
++      self->connection_->wayland_output_manager()->GetOutputId(output);
++  if (!output_id) {
++    return;
++  }
++
++  if (auto it = std::ranges::find(self->entered_outputs_, output_id);
+       it == self->entered_outputs_.end()) {
+-    self->entered_outputs_.emplace_back(wayland_output->output_id());
++    self->entered_outputs_.emplace_back(output_id);
+   }
+ 
+   if (self->root_window_) {
+@@ -922,9 +923,11 @@
+     return;
+   }
+ 
+-  auto* wayland_output =
+-      static_cast<WaylandOutput*>(wl_output_get_user_data(output));
+-  self->RemoveEnteredOutput(wayland_output->output_id());
++  const auto output_id =
++      self->connection_->wayland_output_manager()->GetOutputId(output);
++  if (output_id) {
++    self->RemoveEnteredOutput(output_id);
++  }
+ }
+ 
+ // static

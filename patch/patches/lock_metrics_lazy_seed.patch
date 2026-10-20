@@ -1,0 +1,16 @@
+--- a/base/synchronization/lock_metrics_recorder.cc
++++ b/base/synchronization/lock_metrics_recorder.cc
+@@ -226,7 +226,12 @@
+ 
+ LockMetricsRecorder::LockMetricsRecorder(PassKey,
+                                          std::string_view histogram_suffix)
+-    : histogram_suffix_(histogram_suffix) {}
++    : histogram_suffix_(histogram_suffix) {
++  // The subsampler seeds lazily, and BoringSSL randomness may allocate. Warm
++  // it before publishing this recorder: sampling a contended PartitionAlloc
++  // lock must never enter the allocator recursively.
++  (void)subsampler_.ShouldSample(0.0);
++}
+ 
+ LockMetricsRecorder::~LockMetricsRecorder() = default;
+ 
