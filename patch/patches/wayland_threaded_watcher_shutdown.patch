@@ -1,0 +1,177 @@
+--- a/ui/events/platform/wayland/wayland_event_watcher.h
++++ b/ui/events/platform/wayland/wayland_event_watcher.h
+@@ -5,10 +5,13 @@
+ #ifndef UI_EVENTS_PLATFORM_WAYLAND_WAYLAND_EVENT_WATCHER_H_
+ #define UI_EVENTS_PLATFORM_WAYLAND_WAYLAND_EVENT_WATCHER_H_
+ 
++#include <memory>
++
+ #include "base/functional/callback.h"
+ #include "base/memory/raw_ptr.h"
+ #include "base/memory/weak_ptr.h"
+ #include "base/message_loop/message_pump_for_ui.h"
++#include "base/synchronization/lock.h"
+ #include "base/threading/thread_checker.h"
+ 
+ struct wl_display;
+@@ -95,7 +98,8 @@
+   void StartProcessingEventsThread();
+   void StartProcessingEventsInternal();
+   void StopProcessingEventsInternal();
+-  void WlDisplayDispatchPendingQueueInternal(base::WaitableEvent* event);
++  void WlDisplayDispatchPendingQueueInternal(
++      std::shared_ptr<base::WaitableEvent> event);
+ 
+   // Checks if |display_| has any error set. If so, |shutdown_cb_| is executed
+   // and false is returned.
+@@ -119,6 +123,14 @@
+   // file for this header.
+   std::unique_ptr<base::Thread> thread_;
+ 
++  // Wake a polling-thread dispatch wait before joining that thread. A queued
++  // UI callback shares ownership of the event so it never references a stack
++  // event after shutdown has released the wait.
++  base::Lock dispatch_lock_;
++  bool stopping_ GUARDED_BY(dispatch_lock_) = false;
++  std::shared_ptr<base::WaitableEvent> pending_dispatch_
++      GUARDED_BY(dispatch_lock_);
++
+   // The original ui task runner where |this| has been created.
+   scoped_refptr<base::SingleThreadTaskRunner> ui_thread_task_runner_;
+ 
+--- a/ui/events/platform/wayland/wayland_event_watcher.cc
++++ b/ui/events/platform/wayland/wayland_event_watcher.cc
+@@ -159,10 +159,14 @@
+     if (!ui_thread_task_runner_) {
+       ui_thread_task_runner_ =
+           base::SingleThreadTaskRunner::GetCurrentDefault();
++    }
++
++    if (!thread_) {
++      {
++        base::AutoLock lock(dispatch_lock_);
++        stopping_ = false;
++      }
+       weak_this_ = weak_factory_.GetWeakPtr();
+-    }
+-
+-    if (!thread_) {
+       // FD watching will happen on a different thread.
+       DETACH_FROM_THREAD(thread_checker_);
+ 
+@@ -226,16 +230,34 @@
+ }
+ 
+ void WaylandEventWatcher::StopProcessingEvents() {
+-  if (!watching_) {
+-    return;
+-  }
+-
+-  if (use_threaded_polling_) {
+-    watching_thread_task_runner_->PostTask(
++  if (use_threaded_polling_ && thread_) {
++    if (watching_thread_task_runner_ &&
++        watching_thread_task_runner_->BelongsToCurrentThread()) {
++      StopProcessingEventsInternal();
++      return;
++    }
++
++    {
++      base::AutoLock lock(dispatch_lock_);
++      stopping_ = true;
++      if (pending_dispatch_) {
++        pending_dispatch_->Signal();
++      }
++    }
++    // Stop while the derived watcher and its GPollFD are still alive. Posting
++    // alone lets a GLib check callback race their destruction.
++    thread_->task_runner()->PostTask(
+         FROM_HERE,
+         base::BindOnce(&WaylandEventWatcher::StopProcessingEventsInternal,
+                        base::Unretained(this)));
+-  } else {
++    thread_->Stop();
++    thread_.reset();
++    watching_thread_task_runner_.reset();
++    weak_factory_.InvalidateWeakPtrs();
++    weak_this_.reset();
++    return;
++  }
++  if (watching_) {
+     StopProcessingEventsInternal();
+   }
+ }
+@@ -302,19 +324,30 @@
+ void WaylandEventWatcher::WlDisplayDispatchPendingQueue() {
+   if (use_threaded_polling_ &&
+       watching_thread_task_runner_->BelongsToCurrentThread()) {
+-    base::WaitableEvent event;
++    auto event = std::make_shared<base::WaitableEvent>();
++    {
++      base::AutoLock lock(dispatch_lock_);
++      if (stopping_) {
++        return;
++      }
++      pending_dispatch_ = event;
++    }
+     auto cb = base::BindOnce(
+         &WaylandEventWatcher::WlDisplayDispatchPendingQueueInternal, weak_this_,
+-        &event);
++        event);
+     ui_thread_task_runner_->PostTask(FROM_HERE, std::move(cb));
+-    event.Wait();
++    event->Wait();
++    {
++      base::AutoLock lock(dispatch_lock_);
++      pending_dispatch_.reset();
++    }
+   } else {
+     WlDisplayDispatchPendingQueueInternal(nullptr);
+   }
+ }
+ 
+ void WaylandEventWatcher::WlDisplayDispatchPendingQueueInternal(
+-    base::WaitableEvent* event) {
++    std::shared_ptr<base::WaitableEvent> event) {
+   // wl_display_dispatch_queue_pending may block if dispatching events results
+   // in a tab dragging that spins a run loop, which doesn't return until it's
+   // over. Thus, signal before this function is called.
+--- a/ui/ozone/platform/wayland/host/wayland_connection.cc
++++ b/ui/ozone/platform/wayland/host/wayland_connection.cc
+@@ -142,6 +142,11 @@
+ WaylandConnection::WaylandConnection() = default;
+ 
+ WaylandConnection::~WaylandConnection() {
++  // Quiesce the borrowed display's polling thread before tearing down protocol
++  // objects. Keep the event source alive for the seat's final focus callbacks.
++  if (event_source_) {
++    event_source_->StopProcessingEvents();
++  }
+   SetWaylandConnectionForEmbedders(nullptr, nullptr);
+ 
+   // Destroying the seat makes WaylandPointer report a final focus change, which
+--- a/ui/ozone/platform/wayland/host/wayland_event_source.h
++++ b/ui/ozone/platform/wayland/host/wayland_event_source.h
+@@ -85,6 +85,9 @@
+   // This method assumes connection is already established and input objects
+   // are already bound and properly initialized.
+   void StartProcessingEvents();
++
++  // Stop polling before WaylandConnection begins protocol-object teardown.
++  void StopProcessingEvents();
+ 
+   // Forwards the call to WaylandEventWatcher, which calls
+   // wl_display_roundtrip_queue.
+--- a/ui/ozone/platform/wayland/host/wayland_event_source.cc
++++ b/ui/ozone/platform/wayland/host/wayland_event_source.cc
+@@ -223,6 +223,10 @@
+ 
+ void WaylandEventSource::StartProcessingEvents() {
+   event_watcher_->StartProcessingEvents();
++}
++
++void WaylandEventSource::StopProcessingEvents() {
++  event_watcher_->StopProcessingEvents();
+ }
+ 
+ void WaylandEventSource::OnKeyboardFocusChanged(WaylandWindow* window,

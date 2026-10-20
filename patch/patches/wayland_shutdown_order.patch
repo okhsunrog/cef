@@ -1,0 +1,16 @@
+--- a/ui/ozone/platform/wayland/host/wayland_connection.cc
++++ b/ui/ozone/platform/wayland/host/wayland_connection.cc
+@@ -152,8 +152,12 @@
+   // order cannot express it. (Declaration order does already destroy |seat_|
+   // before |window_manager_|; the ordering that needed forcing is against the
+   // screen, not against them.)
++  // Drag controller destructors access the data device through the seat.
++  // Preserve their normal reverse-member destruction order before the early
++  // seat teardown required above.
++  window_drag_controller_.reset();
++  data_drag_controller_.reset();
+   seat_.reset();
+-
+ 
+   if (fixes_ && registry_) {
+     wl_fixes_destroy_registry(fixes_.get(), registry_.get());
