@@ -1,0 +1,16 @@
+--- a/components/viz/service/display/display.cc
++++ b/components/viz/service/display/display.cc
+@@ -1355,6 +1355,13 @@
+ 
+   int64_t presented_trace_id = presentation_group_timing.swap_trace_id();
+   copy_feedback.display_trace_id = presented_trace_id;
++  TRACE_EVENT_INSTANT(
++      "viz,benchmark", "Wavebench.PresentationFeedback",
++      copy_feedback.timestamp, "display_trace_id", presented_trace_id,
++      "flags", feedback.flags, "sanitized_flags", copy_feedback.flags,
++      "raw_timestamp_us",
++      feedback.timestamp.since_origin().InMicroseconds(), "interval_us",
++      feedback.interval.InMicroseconds());
+   TRACE_EVENT_END("viz,benchmark",
+                   /* Graphics.Pipeline.DrawAndSwap */
+                   perfetto::NamedTrack("Graphics.Pipeline", presented_trace_id),

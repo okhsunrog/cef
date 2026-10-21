@@ -1,0 +1,35 @@
+{
+  "source_hashes": {
+    "v8/src/heap/cppgc-internal/heap-object-header.cc": {
+      "old_sha256": "4b94dfbdbccbafd12bfbd20a101fe62303a0925a5f468f58ff1ebfa7211aa46b",
+      "new_sha256": "91453e6843e9b9ca7480b56a35c3e16ea4a88de2c0f9dd7d11e681c9a55a9888"
+    },
+    "v8/src/heap/cppgc-internal/sweeper.cc": {
+      "old_sha256": "6ef42035475c9f2973318054b7f983ba94f48c6925330f5af728539285056bb1",
+      "new_sha256": "9f294500bf75e40a7c3689ea0d6a4ff615715a19f8d754677f3f770222a10af9"
+    },
+    "components/viz/service/display/display.cc": {
+      "old_sha256": "007f47afe74378941529158798d153b2513ea2cbcf88676da719dc9d1411a0e4",
+      "new_sha256": "7e3a1ceb58b8e9ca9210c8cdb04c0cf80412c321a02d98aaa25b9b108442f494"
+    },
+    "ui/ozone/platform/wayland/host/wayland_frame_manager.cc": {
+      "old_sha256": "4c1d4ba1aacf4185d2fe4bda5429963bd55214b415afc602ca80352c1bbdf99d",
+      "new_sha256": "5a442803ddcf430bd4cb512f558fc229458c05bdb69742ce4fe6f1c4d42f82d6"
+    }
+  },
+  "cef_base": "a09c27de3f5bb45f4cfb8656a46d85d272e1587e",
+  "chromium_base": "b859317bf11f6be47f9b7799ec690a0a42a1fb33",
+  "v8_base": "b3d6849efaf11696198e15b32290e6d6b0d540c1",
+  "libcef_sha256": "85cb282e3df5292e2fff4e65ff3085857037fd957092bda5c8d95d505eab96ad",
+  "sdk_sha256": "9c825c2610f35423771c29fb943e1fe5e25df450ee071a8db388c330d19dd57e",
+  "sdk_bytes": 266280748,
+  "reader_overlay_sha256": "1ad8496c4e63c3a3e276b72ff804c43fe7d82908a97121ecb04e7a40adc3c147",
+  "deadline_overlay_sha256": "8395cf3404b8e06cd00981a767cb14cefc8853cd6f9cf6ee8f85d94e0be76cab",
+  "finalizer_patch_sha256": "0e805fc12c7457a0cb1ff94ad44569b038c1a5555740de287ef245a484e326fc",
+  "wayland_patch_sha256": "3f05691cd9e31b28c744b0908656a72414ad6051153f9c9786de3f0b84723ced",
+  "presentation_patch_sha256": "ce4f237f3a138033041d639b6f854cd68eff0a4721b306fd0ce52e65514607e1",
+  "started_at": "Wed Oct 21 17:39:00 UTC 2026",
+  "finished_at": "Wed Oct 21 17:43:10 UTC 2026",
+  "jobs": 8,
+  "flavor": "STD2-16-32"
+}

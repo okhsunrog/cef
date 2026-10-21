@@ -1,0 +1,54 @@
+--- a/v8/src/heap/cppgc-internal/heap-object-header.cc
++++ b/v8/src/heap/cppgc-internal/heap-object-header.cc
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
+ #include "src/heap/cppgc-internal/heap-object-header.h"
++
++#include <cstdlib>
+ 
+ #include "include/cppgc/allocation.h"
+ #include "include/cppgc/internal/api-constants.h"
+@@ -11,6 +13,7 @@
+ #include "src/heap/cppgc-internal/gc-info-table.h"
+ #include "src/heap/cppgc-internal/heap-base.h"
+ #include "src/heap/cppgc-internal/heap-page.h"
++#include "src/heap/cppgc-internal/trace-event.h"
+ 
+ namespace cppgc {
+ namespace internal {
+@@ -34,6 +37,22 @@
+ #endif  // V8_USE_ADDRESS_SANITIZER
+   const GCInfo& gc_info = GlobalGCInfoTable::GCInfoFromIndex(GetGCInfoIndex());
+   if (gc_info.finalize) {
++#if defined(V8_USE_PERFETTO)
++    static const bool profile_finalizers = [] {
++      const char* value = std::getenv("WAVEBENCH_CPPGC_FINALIZERS");
++      return value && value[0] == '1';
++    }();
++    if (profile_finalizers) {
++      // Resolve names while the object is still alive. Perfetto copies the
++      // argument before the destructor runs. This is diagnostic-only tracing.
++      const auto name = gc_info.name(
++          ObjectStart(), HeapObjectNameForUnnamedObject::kUseClassNameIfSupported);
++      TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("cppgc"), "CppGC.FinalizeObject",
++                  "type", name.value, "gc_info_index", GetGCInfoIndex());
++      gc_info.finalize(ObjectStart());
++      return;
++    }
++#endif
+     gc_info.finalize(ObjectStart());
+   }
+ }
+--- a/v8/src/heap/cppgc-internal/sweeper.cc
++++ b/v8/src/heap/cppgc-internal/sweeper.cc
+@@ -509,6 +509,9 @@
+   void FinalizePage(SweepingState::SweptPageState* page_state) {
+     DCHECK(page_state);
+     DCHECK(page_state->page);
++#if defined(V8_USE_PERFETTO)
++    TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("cppgc"), "CppGC.FinalizePage");
++#endif
+     BasePage* page = page_state->page;
+ 
+     // Call finalizers.

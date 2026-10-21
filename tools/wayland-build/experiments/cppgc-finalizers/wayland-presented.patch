@@ -1,0 +1,13 @@
+--- a/ui/ozone/platform/wayland/host/wayland_frame_manager.cc
++++ b/ui/ozone/platform/wayland/host/wayland_frame_manager.cc
+@@ -652,6 +652,10 @@
+     uint32_t flags) {
+   auto* self = static_cast<WaylandFrameManager*>(data);
+   DCHECK(self);
++  const auto presented = self->connection_->ConvertPresentationTime(
++      tv_sec_hi, tv_sec_lo, tv_nsec);
++  TRACE_EVENT_INSTANT("viz", "Wavebench.WaylandPresented", presented,
++                      "protocol_flags", flags, "refresh_ns", refresh);
+   self->HandlePresentationFeedback(
+       presentation_feedback,
+       gfx::PresentationFeedback(self->connection_->ConvertPresentationTime(
