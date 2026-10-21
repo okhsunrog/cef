@@ -1,0 +1,235 @@
+--- a/ui/events/platform/wayland/wayland_event_watcher.h
++++ b/ui/events/platform/wayland/wayland_event_watcher.h
+@@ -45,7 +45,8 @@
+   static std::unique_ptr<WaylandEventWatcher> CreateWaylandEventWatcher(
+       wl_display* display,
+       wl_event_queue* event_queue,
+-      bool use_threaded_polling = false);
++      bool use_threaded_polling = false,
++      bool read_events_externally = false);
+ 
+   // Sets a callback that that shutdowns the browser in case of
+   // unrecoverable error. Can only be set once.
+--- a/ui/events/platform/wayland/wayland_event_watcher_glib.h
++++ b/ui/events/platform/wayland/wayland_event_watcher_glib.h
+@@ -20,7 +20,8 @@
+  public:
+   WaylandEventWatcherGlib(wl_display* display,
+                           wl_event_queue* event_queue,
+-                          bool use_threaded_polling);
++                          bool use_threaded_polling,
++                          bool read_events_externally = false);
+   WaylandEventWatcherGlib(const WaylandEventWatcherGlib&) = delete;
+   WaylandEventWatcherGlib& operator=(const WaylandEventWatcherGlib&) = delete;
+   ~WaylandEventWatcherGlib() override;
+@@ -37,6 +38,9 @@
+   bool StartWatchingFD(int fd) override;
+   void StopWatchingFD() override;
+ 
++  // The embedding toolkit reads this display on the same GLib context.
++  const bool read_events_externally_;
++
+   bool started_ = false;
+ 
+   // The GLib event source for Wayland events.
+--- a/ui/events/platform/wayland/wayland_event_watcher_glib.cc
++++ b/ui/events/platform/wayland/wayland_event_watcher_glib.cc
+@@ -74,8 +74,12 @@
+ 
+ WaylandEventWatcherGlib::WaylandEventWatcherGlib(wl_display* display,
+                                                  wl_event_queue* event_queue,
+-                                                 bool use_threaded_polling)
+-    : WaylandEventWatcher(display, event_queue, use_threaded_polling) {}
++                                                 bool use_threaded_polling,
++                                                 bool read_events_externally)
++    : WaylandEventWatcher(display,
++                          event_queue,
++                          use_threaded_polling && !read_events_externally),
++      read_events_externally_(read_events_externally) {}
+ 
+ WaylandEventWatcherGlib::~WaylandEventWatcherGlib() {
+   StopProcessingEvents();
+@@ -122,10 +126,23 @@
+ }
+ 
+ bool WaylandEventWatcherGlib::HandlePrepare() {
+-  return WlDisplayPrepareToRead();
++  const bool prepared = WlDisplayPrepareToRead();
++  if (read_events_externally_) {
++    // Only probe our queue. Never leave a second reader prepared while GTK
++    // polls: its read_events() would wait for us on the same UI thread.
++    // GTK's poll source reads first (G_MININT priority), distributing events
++    // to all queues. Our check/next prepare then notices our pending events.
++    WlDisplayCancelRead();
++  }
++  return prepared;
+ }
+ 
+ void WaylandEventWatcherGlib::HandleCheck(bool is_io_in) {
++  if (read_events_externally_) {
++    // GTK has already read or cancelled its preparation. Do not consume the
++    // fd here: dispatch only our queue, without posting to/waiting on the UI.
++    return;
++  }
+   if (is_io_in) {
+     WlDisplayReadEvents();
+   } else {
+@@ -141,9 +158,10 @@
+ std::unique_ptr<WaylandEventWatcher>
+ WaylandEventWatcher::CreateWaylandEventWatcher(wl_display* display,
+                                                wl_event_queue* event_queue,
+-                                               bool use_threaded_polling) {
+-  return std::make_unique<WaylandEventWatcherGlib>(display, event_queue,
+-                                                   use_threaded_polling);
++                                               bool use_threaded_polling,
++                                               bool read_events_externally) {
++  return std::make_unique<WaylandEventWatcherGlib>(
++      display, event_queue, use_threaded_polling, read_events_externally);
+ }
+ 
+ }  // namespace ui
+--- a/ui/events/platform/wayland/wayland_event_watcher_fdwatch.cc
++++ b/ui/events/platform/wayland/wayland_event_watcher_fdwatch.cc
+@@ -60,9 +60,10 @@
+ std::unique_ptr<WaylandEventWatcher>
+ WaylandEventWatcher::CreateWaylandEventWatcher(wl_display* display,
+                                                wl_event_queue* event_queue,
+-                                               bool use_threaded_polling) {
+-  return std::make_unique<WaylandEventWatcherFdWatch>(display, event_queue,
+-                                                      use_threaded_polling);
++                                               bool use_threaded_polling,
++                                               bool read_events_externally) {
++  return std::make_unique<WaylandEventWatcherFdWatch>(
++      display, event_queue, use_threaded_polling || read_events_externally);
+ }
+ 
+ }  // namespace ui
+--- a/ui/ozone/platform/wayland/host/wayland_event_source.h
++++ b/ui/ozone/platform/wayland/host/wayland_event_source.h
+@@ -66,7 +66,8 @@
+                      wl_event_queue* event_queue,
+                      WaylandWindowManager* window_manager,
+                      WaylandConnection* connection,
+-                     bool use_threaded_polling = false);
++                     bool use_threaded_polling = false,
++                     bool read_events_externally = false);
+   WaylandEventSource(const WaylandEventSource&) = delete;
+   WaylandEventSource& operator=(const WaylandEventSource&) = delete;
+   ~WaylandEventSource() override;
+--- a/ui/ozone/platform/wayland/host/wayland_event_source.cc
++++ b/ui/ozone/platform/wayland/host/wayland_event_source.cc
+@@ -202,13 +202,15 @@
+                                        wl_event_queue* event_queue,
+                                        WaylandWindowManager* window_manager,
+                                        WaylandConnection* connection,
+-                                       bool use_threaded_polling)
++                                       bool use_threaded_polling,
++                                       bool read_events_externally)
+     : window_manager_(window_manager),
+       connection_(connection),
+       event_watcher_(WaylandEventWatcher::CreateWaylandEventWatcher(
+           display,
+           event_queue,
+-          use_threaded_polling)) {
++          use_threaded_polling,
++          read_events_externally)) {
+   DCHECK(window_manager_);
+ 
+   // Observes remove changes to know when touch points can be removed.
+@@ -1223,9 +1225,9 @@
+         dx = dx / kAxisValueScale * MouseWheelEvent::kWheelDelta;
+         dy = dy / kAxisValueScale * MouseWheelEvent::kWheelDelta;
+       }
+-      MouseWheelEvent event(
+-          gfx::ToRoundedVector2d(gfx::Vector2dF(dx, dy)),
+-          pointer_location_, pointer_location_, timestamp, flags, 0);
++      MouseWheelEvent event(gfx::ToRoundedVector2d(gfx::Vector2dF(dx, dy)),
++                            pointer_location_, pointer_location_, timestamp,
++                            flags, 0);
+       pointer_frames_.push_back(
+           std::make_unique<FrameData>(event, base::NullCallback()));
+     } else if (*pointer_scroll_data_->axis_source ==
+--- a/ui/ozone/platform/wayland/host/wayland_connection.cc
++++ b/ui/ozone/platform/wayland/host/wayland_connection.cc
+@@ -9,9 +9,8 @@
+ #include <presentation-time-client-protocol.h>
+ #include <xdg-shell-client-protocol.h>
+ 
++#include <cstdint>
+ #include <tuple>
+-
+-#include <cstdint>
+ 
+ #include "base/command_line.h"
+ #include "base/compiler_specific.h"
+@@ -237,9 +236,8 @@
+     // Adopted from an embedding application. Ownership stays with them, so
+     // release before destruction rather than calling wl_display_disconnect().
+     owns_display_ = false;
+-    // GTK also prepares and reads this display from the UI thread. Two
+-    // prepared readers on that thread deadlock in wl_display_read_events().
+-    // Keep Chromium's read/poll cycle on its existing dedicated thread.
++    // The default shared-display path supports embedders with their own poll
++    // loop. GTK integration may opt into the single-reader GLib path below.
+     use_threaded_polling = true;
+     display_.reset(external_display);
+     VLOG(1) << "Using Wayland display provided by the embedding application";
+@@ -276,7 +274,9 @@
+   DCHECK(!event_source_);
+   event_source_ = std::make_unique<WaylandEventSource>(
+       display(), event_queue_.get(), window_manager(), this,
+-      use_threaded_polling);
++      use_threaded_polling,
++      !owns_display_ && base::CommandLine::ForCurrentProcess()->HasSwitch(
++                            "wayland-external-reader"));
+ 
+   // Create the buffer factory before registry listener is set so that shm, drm,
+   // zwp_linux_dmabuf objects are able to be stored.
+@@ -319,11 +319,13 @@
+ 
+   // When we are running tests with weston in headless mode, the seat is not
+   // announced.
+-  if (!seat_)
++  if (!seat_) {
+     LOG(WARNING) << "No wl_seat object. The functionality may suffer.";
+-
+-  if (UseTestConfigForPlatformWindows())
++  }
++
++  if (UseTestConfigForPlatformWindows()) {
+     wayland_proxy_ = std::make_unique<wl::WaylandProxyImpl>(this);
++  }
+   return true;
+ }
+ 
+@@ -339,24 +341,27 @@
+ 
+ void WaylandConnection::SetPlatformCursor(wl_cursor* cursor_data,
+                                           int buffer_scale) {
+-  if (!cursor_)
++  if (!cursor_) {
+     return;
++  }
+   cursor_->SetPlatformShape(cursor_data, buffer_scale);
+ }
+ 
+ void WaylandConnection::SetCursorBufferListener(
+     WaylandCursorBufferListener* listener) {
+   listener_ = listener;
+-  if (!cursor_)
++  if (!cursor_) {
+     return;
++  }
+   cursor_->set_listener(listener_);
+ }
+ 
+ void WaylandConnection::SetCursorBitmap(const std::vector<SkBitmap>& bitmaps,
+                                         const gfx::Point& hotspot_in_dips,
+                                         int buffer_scale) {
+-  if (!cursor_)
++  if (!cursor_) {
+     return;
++  }
+   cursor_->UpdateBitmap(bitmaps, hotspot_in_dips, buffer_scale);
+ }
+ 

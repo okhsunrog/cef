@@ -79,3 +79,21 @@ outside Git. No VM or volume is deleted by these build entry points.
 The consumer branch contains the Nix SDK package, WebGPU streaming benchmark,
 and the original smoke app. SDK binaries and build caches are not Git content.
 Archive SHA256: `90ae4e47589368b446fb0e2312ee0b7ea6120f0591d770f939234a3ed7731cb2`.
+
+## GTK shared-display reader coordination
+
+`wayland_external_reader.patch` adds an opt-in GLib path for GTK embedders:
+pass `--wayland-external-reader` when the shared display is read by GTK on the
+browser UI's default GLib context. GTK's G_MININT source reads/cancels first;
+CEF probes its dedicated queue with a balanced prepare/cancel and dispatches
+pending protocol events on the same context. It never holds another prepared
+reader across GTK polling. Owned displays and embedders with custom polling
+loops retain the existing watcher behavior. The switch does not change the C API.
+
+Tauri's GTK4 Wayland backend requests this switch automatically. Do not enable
+it for the standalone `cefembed_wayland` custom polling loop.
+
+The `validated/` directory remains the original published baseline. The reader
+candidate SDK was built incrementally on that baseline with the registered
+reader patch; its generated version label still identifies the CEF base commit
+`a09c27de3`. Its separate artifact provenance must include the reader patch hash.

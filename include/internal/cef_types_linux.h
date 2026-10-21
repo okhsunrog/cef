@@ -113,6 +113,11 @@ CEF_EXPORT XDisplay* cef_get_xdisplay(void);
 /// connection, so the client may keep running its own event loop on the
 /// default queue.
 ///
+/// GTK embedders running the browser UI on GTK's default GLib context may pass
+/// --wayland-external-reader to let GTK read the shared socket while CEF only
+/// dispatches its dedicated queue. Do not enable this switch with a separate
+/// polling loop: that loop must otherwise arrange GLib queue dispatch itself.
+///
 /// Has no effect if the active Ozone platform is not Wayland.
 ///
 CEF_EXPORT void cef_set_wayland_display(cef_wayland_display_handle_t display);
