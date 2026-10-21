@@ -1,0 +1,170 @@
+--- a/third_party/wayland-protocols/BUILD.gn
++++ b/third_party/wayland-protocols/BUILD.gn
+@@ -33,6 +33,10 @@
+ 
+ wayland_protocol("extended_drag") {
+   sources = [ "unstable/extended-drag/extended-drag-unstable-v1.xml" ]
++}
++
++wayland_protocol("fifo_protocol") {
++  sources = [ "src/staging/fifo/fifo-v1.xml" ]
+ }
+ 
+ wayland_protocol("fractional_scale_protocol") {
+--- a/ui/ozone/platform/wayland/BUILD.gn
++++ b/ui/ozone/platform/wayland/BUILD.gn
+@@ -262,6 +262,7 @@
+     "//third_party/wayland-protocols:content_type_protocol",
+     "//third_party/wayland-protocols:cursor_shape_protocol",
+     "//third_party/wayland-protocols:extended_drag",
++    "//third_party/wayland-protocols:fifo_protocol",
+     "//third_party/wayland-protocols:fractional_scale_protocol",
+     "//third_party/wayland-protocols:gtk_primary_selection_protocol",
+     "//third_party/wayland-protocols:idle_inhibit_protocol",
+@@ -509,6 +510,7 @@
+     "//third_party/wayland:wayland_client",
+     "//third_party/wayland:wayland_server",
+     "//third_party/wayland-protocols:alpha_compositing_protocol",
++    "//third_party/wayland-protocols:fifo_protocol",
+     "//third_party/wayland-protocols:fractional_scale_protocol",
+     "//third_party/wayland-protocols:gtk_primary_selection_protocol",
+     "//third_party/wayland-protocols:linux_dmabuf_protocol",
+--- a/ui/ozone/platform/wayland/common/wayland_object.h
++++ b/ui/ozone/platform/wayland/common/wayland_object.h
+@@ -144,6 +144,8 @@
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_content_type_v1)
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_cursor_shape_device_v1)
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_cursor_shape_manager_v1)
++DECLARE_WAYLAND_OBJECT_TRAITS(wp_fifo_manager_v1)
++DECLARE_WAYLAND_OBJECT_TRAITS(wp_fifo_v1)
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_fractional_scale_manager_v1)
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_fractional_scale_v1)
+ DECLARE_WAYLAND_OBJECT_TRAITS(wp_image_description_creator_params_v1)
+--- a/ui/ozone/platform/wayland/common/wayland_object.cc
++++ b/ui/ozone/platform/wayland/common/wayland_object.cc
+@@ -10,6 +10,7 @@
+ #include <content-type-v1-client-protocol.h>
+ #include <cursor-shape-v1-client-protocol.h>
+ #include <extended-drag-unstable-v1-client-protocol.h>
++#include <fifo-v1-client-protocol.h>
+ #include <fractional-scale-v1-client-protocol.h>
+ #include <gtk-primary-selection-client-protocol.h>
+ #include <idle-client-protocol.h>
+@@ -182,6 +183,8 @@
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_content_type_v1)
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_cursor_shape_device_v1)
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_cursor_shape_manager_v1)
++IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_fifo_manager_v1)
++IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_fifo_v1)
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_fractional_scale_manager_v1)
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_fractional_scale_v1)
+ IMPLEMENT_WAYLAND_OBJECT_TRAITS(wp_image_description_creator_params_v1)
+--- a/ui/ozone/platform/wayland/host/wayland_connection.h
++++ b/ui/ozone/platform/wayland/host/wayland_connection.h
+@@ -117,6 +117,7 @@
+     return alpha_compositing_.get();
+   }
+   xdg_wm_base* shell() const { return shell_.get(); }
++  wp_fifo_manager_v1* fifo_manager() const { return fifo_manager_.get(); }
+   wp_presentation* presentation() const { return presentation_.get(); }
+   zcr_keyboard_extension_v1* keyboard_extension_v1() const {
+     return keyboard_extension_v1_.get();
+@@ -428,6 +429,7 @@
+   wl::Object<wl_subcompositor> subcompositor_;
+   wl::Object<xdg_wm_base> shell_;
+   wl::Object<wp_content_type_manager_v1> content_type_manager_v1_;
++  wl::Object<wp_fifo_manager_v1> fifo_manager_;
+   wl::Object<wp_presentation> presentation_;
+   wl::Object<wp_viewporter> viewporter_;
+   wl::Object<zcr_alpha_compositing_v1> alpha_compositing_;
+--- a/ui/ozone/platform/wayland/host/wayland_connection.cc
++++ b/ui/ozone/platform/wayland/host/wayland_connection.cc
+@@ -6,6 +6,7 @@
+ 
+ #include <content-type-v1-client-protocol.h>
+ #include <extended-drag-unstable-v1-client-protocol.h>
++#include <fifo-v1-client-protocol.h>
+ #include <presentation-time-client-protocol.h>
+ #include <xdg-shell-client-protocol.h>
+ 
+@@ -729,6 +730,12 @@
+       LOG(ERROR) << "Failed to bind wp_content_type_v1";
+       return;
+     }
++  } else if (UNSAFE_TODO(strcmp(interface, "wp_fifo_manager_v1")) == 0) {
++    if (!fifo_manager_ &&
++        base::CommandLine::ForCurrentProcess()->HasSwitch("wayland-fifo")) {
++      fifo_manager_ = wl::Bind<wp_fifo_manager_v1>(registry, name, 1);
++      LOG(INFO) << "Wayland FIFO manager bound for opt-in frame pacing";
++    }
+   } else if (!presentation_ &&
+              (UNSAFE_TODO(strcmp(interface, "wp_presentation")) == 0)) {
+     presentation_ = wl::Bind<wp_presentation>(
+--- a/ui/ozone/platform/wayland/host/wayland_surface.h
++++ b/ui/ozone/platform/wayland/host/wayland_surface.h
+@@ -213,6 +213,9 @@
+ 
+   // Commits the underlying wl_surface, triggers a wayland connection flush if
+   // |flush| is true.
++  // Add display-refresh constraints to the next root buffer commit, opt-in.
++  void ApplyFifoConstraint();
++
+   void Commit(bool flush = true);
+ 
+   // Workaround used by GLSurfaceWayland when libgbm is not available. Causes
+@@ -370,6 +373,8 @@
+   raw_ptr<WaylandWindow> root_window_ = nullptr;
+   bool apply_state_immediately_ = false;
+   wl::Object<wl_surface> surface_;
++  // Destroy the per-surface extension before its wl_surface.
++  wl::Object<wp_fifo_v1> fifo_;
+   wl::Object<wp_viewport> viewport_;
+   wl::Object<zcr_blending_v1> blending_;
+   wl::Object<wp_linux_drm_syncobj_surface_v1> surface_sync_;
+--- a/ui/ozone/platform/wayland/host/wayland_surface.cc
++++ b/ui/ozone/platform/wayland/host/wayland_surface.cc
+@@ -6,6 +6,7 @@
+ 
+ #include <alpha-compositing-unstable-v1-client-protocol.h>
+ #include <content-type-v1-client-protocol.h>
++#include <fifo-v1-client-protocol.h>
+ #include <fractional-scale-v1-client-protocol.h>
+ #include <linux-drm-syncobj-v1-client-protocol.h>
+ #include <overlay-prioritizer-client-protocol.h>
+@@ -306,6 +307,24 @@
+   pending_state_.damage_px.push_back(damage_px);
+ }
+ 
++void WaylandSurface::ApplyFifoConstraint() {
++  if (!connection_->fifo_manager()) {
++    return;
++  }
++  if (!fifo_) {
++    fifo_.reset(wp_fifo_manager_v1_get_fifo(connection_->fifo_manager(),
++                                            surface_.get()));
++    LOG(INFO) << "Wayland FIFO enabled on surface " << get_surface_id();
++  }
++  // The previous buffer must pass a latching deadline before this update can
++  // become active. Keep frame callbacks as the independent throttle required
++  // when the compositor ignores FIFO (occluded or synchronized subsurfaces).
++  wp_fifo_v1_wait_barrier(fifo_.get());
++  wp_fifo_v1_set_barrier(fifo_.get());
++  TRACE_EVENT_INSTANT("wayland", "Wavebench.FifoConstraint", "surface_id",
++                      get_surface_id());
++}
++
+ void WaylandSurface::Commit(bool flush) {
+   wl_surface_commit(surface_.get());
+   if (flush)
+--- a/ui/ozone/platform/wayland/host/wayland_frame_manager.cc
++++ b/ui/ozone/platform/wayland/host/wayland_frame_manager.cc
+@@ -389,6 +389,9 @@
+          frame->pending_feedback || frame->feedback.has_value());
+   TRACE_EVENT_BEGIN("wayland", "WaylandFrameManager.PlaybackFrame",
+                     perfetto::Track(frame->frame_id));
++  if (!empty_frame) {
++    root_surface->ApplyFifoConstraint();
++  }
+   root_surface->Commit(true);
+ 
+   frame->root_config = wl::WaylandOverlayConfig();

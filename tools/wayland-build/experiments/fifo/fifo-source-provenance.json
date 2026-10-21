@@ -1,0 +1,26 @@
+{
+  "base_chromium": "b859317bf11f6be47f9b7799ec690a0a42a1fb33",
+  "patch_sha256": "7b3030f06e585913ea7674f6f28b2dbc1de0fbba9bbc69f2adbb31c22872a964",
+  "base_sha256": {
+    "third_party/wayland-protocols/BUILD.gn": "d2752f2d6c2264cfad055a4f2bf96c1f7306a6d071fdf3824a51fade00d9d85f",
+    "ui/ozone/platform/wayland/BUILD.gn": "5a6dfe08298e10384f68ab6bd10ddd6d3d1ebcba589994c3390e37a877f24376",
+    "ui/ozone/platform/wayland/common/wayland_object.h": "cf95995fa3d4b7decf44161609e9beb1b618cf4379b1aa4805a2d410d484de38",
+    "ui/ozone/platform/wayland/common/wayland_object.cc": "cc567ccce9cb04965a0ea8078ed86586263e0dfa1062223ff36941d5d3474849",
+    "ui/ozone/platform/wayland/host/wayland_connection.h": "219346fdf8b26465eb76ef1e5f9cfcf51dafe832c4bda78daad1e75a68bbb609",
+    "ui/ozone/platform/wayland/host/wayland_connection.cc": "e00aba88681bd84f6887a0501a32aadde424c7a98285f05cdfbfbff89e45c809",
+    "ui/ozone/platform/wayland/host/wayland_surface.h": "765887ae06f251d86f1712447f38072a24c220a588921a567bed1b225a16db77",
+    "ui/ozone/platform/wayland/host/wayland_surface.cc": "31d45a2d9000854121b0c8b444b0b02afa341e8f83f33a1c749d0627c61e65d9",
+    "ui/ozone/platform/wayland/host/wayland_frame_manager.cc": "4c1d4ba1aacf4185d2fe4bda5429963bd55214b415afc602ca80352c1bbdf99d"
+  },
+  "modified_sha256": {
+    "third_party/wayland-protocols/BUILD.gn": "e4691f0b8dad52e19375db4c55d8b2df268fad5a8405731ae6a8b02ae530cbe4",
+    "ui/ozone/platform/wayland/BUILD.gn": "49b039f743d7ed8042cbf94a6b92ce1c6f2bd4e927dbaa82337a58b20feea8c5",
+    "ui/ozone/platform/wayland/common/wayland_object.h": "6adb76808b9e0306c16514c4203e4c7f987b239f02536c0430ca16bbadde3c7b",
+    "ui/ozone/platform/wayland/common/wayland_object.cc": "5f65ca6b95d9e39d63986f6cc4b0adab51691f9691993f122ae2e4b0597e1a1c",
+    "ui/ozone/platform/wayland/host/wayland_connection.h": "a2139bd98f5cbb2e92740b97d69efe2495160e5eb3671840def64c7c6b69025b",
+    "ui/ozone/platform/wayland/host/wayland_connection.cc": "430c0acaa0da0bccd5ee6af82210f248f0ecea11f2a5d87bcd07204a21c97b98",
+    "ui/ozone/platform/wayland/host/wayland_surface.h": "da5e48b4f6ada933363743f09f5c79fc6264f6113a1082ea390b909d45b3f42e",
+    "ui/ozone/platform/wayland/host/wayland_surface.cc": "bc85465377be97a406927b5fd122d811c3bc69638980c95a0ee88fffa6aa20f2",
+    "ui/ozone/platform/wayland/host/wayland_frame_manager.cc": "1a0479d577152a476face9821c34cfe60b68f28177335397679042588baaac3f"
+  }
+}
