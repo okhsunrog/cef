@@ -1,0 +1,29 @@
+{
+  "cef_base_revision": "a09c27de3f5bb45f4cfb8656a46d85d272e1587e",
+  "chromium_base_revision": "b859317bf11f6be47f9b7799ec690a0a42a1fb33",
+  "api_version": 999999,
+  "deadline": {
+    "patch_sha256": "2f7fb7058e231abfb5d9d9949e1f3f4142192a8a9634abf04274f99961a2f01d",
+    "before_sha256": "c7ed160e47a95ff3ae6e831c8f19e2c7e340a0a91012ecee80964634a164e875",
+    "after_sha256": "57028b620fd35548283cf92b6403b11fa7b4e713c5f8afe46f0f04eb76dca7c2",
+    "archive_sha256": "4acddd62b822270b60e7844d72042d2bbc049cd6159947ca08a74b8482d002a2",
+    "raw_lib_sha256": "312c27924d7f3470a65761e7602367f5e1ecd2d6fae5627f31943fd58f0fd994",
+    "nix_lib_sha256": "01c5f1078743990ac845f546572a1c8508b0d777d960bed3a32340c99b997bdb",
+    "api_hash": "a15420be190a255a6479f26806ed67fd59e1eeae",
+    "native_sha256": "d922fdaf69415926079381407f11c7661dabcfdad7d16c70fcc15ca639aafa1f"
+  },
+  "yield": {
+    "patch_sha256": "d3c693fecc3089eeceeecdbc7fdda2cead94f18ee318197c3333eb08e3ab80cc",
+    "before_sha256": "57028b620fd35548283cf92b6403b11fa7b4e713c5f8afe46f0f04eb76dca7c2",
+    "after_sha256": "8e1fa76679aea849ba46a31ffd9c5bd40b3d35cb1a853b1775a9ee50a83c2230",
+    "archive_sha256": "46adddf6ce0e0f9d159662310851d7f1519ba69f3cc9b1bc6fd6a1cc94c7e7d1",
+    "raw_lib_sha256": "e90942406b71bea8e2d831e77819c86e04d6821768e28ba2ce6107ea1ae7f73b",
+    "nix_lib_sha256": "bb36b8607fe6c2023c95028b5c1aca127cfb130f6f52fdfba3333f6e717b09db",
+    "api_hash": "a15420be190a255a6479f26806ed67fd59e1eeae",
+    "native_sha256": "d922fdaf69415926079381407f11c7661dabcfdad7d16c70fcc15ca639aafa1f"
+  },
+  "yield_switch": "external-pump-yield",
+  "yield_default": false,
+  "validation": "virtual-session tests only; physical desktop acceptance pending",
+  "sdk_basis": "FIFO candidate with reader, cppgc page deadline, finalizer and native presentation probes"
+}

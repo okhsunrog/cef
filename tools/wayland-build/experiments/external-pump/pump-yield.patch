@@ -1,0 +1,60 @@
+--- a/libcef/browser/browser_message_loop.cc
++++ b/libcef/browser/browser_message_loop.cc
+@@ -4,6 +4,7 @@
+ 
+ #include "cef/libcef/browser/browser_message_loop.h"
+ 
++#include "base/command_line.h"
+ #include "base/memory/ptr_util.h"
+ #include "base/message_loop/message_pump.h"
+ #include "base/message_loop/message_pump_for_ui.h"
+@@ -24,7 +25,10 @@
+  public:
+   MessagePumpExternal(float max_time_slice,
+                       CefRefPtr<CefBrowserProcessHandler> handler)
+-      : max_time_slice_(max_time_slice), handler_(handler) {}
++      : max_time_slice_(max_time_slice),
++        handler_(handler),
++        yield_to_host_(base::CommandLine::ForCurrentProcess()->HasSwitch(
++            "external-pump-yield")) {}
+ 
+   void Run(Delegate* delegate) override {
+     base::TimeTicks start = base::TimeTicks::Now();
+@@ -35,6 +39,18 @@
+ 
+       base::TimeTicks next_run_time;  // is_null()
+       const auto next_work_info = DirectRunWork(delegate, &next_run_time);
++
++      // A host-owned event loop can wait for the next deadline itself. Avoid
++      // spinning here while GLib/Wayland events wait for the owner thread.
++      if (yield_to_host_ && !next_work_info.is_immediate()) {
++        if (!next_work_info.delayed_run_time.is_max()) {
++          const auto delay = next_work_info.delayed_run_time -
++                             base::TimeTicks::Now();
++          handler_->OnScheduleMessagePumpWork(
++              delay.is_positive() ? delay.InMillisecondsRoundedUp() : 0);
++        }
++        return;
++      }
+ 
+       if (next_run_time.is_null()) {
+         // We have more work that should run immediately.
+@@ -47,7 +63,9 @@
+         // yielding: ScheduleDelayedWork() need not be called for that task.
+         // Only forward an actual delayed task, not the synthetic timestamp
+         // above used when no delayed task is pending.
+-        if (!next_work_info.is_immediate() &&
++        if (yield_to_host_ && next_work_info.is_immediate()) {
++          handler_->OnScheduleMessagePumpWork(0);
++        } else if (!next_work_info.is_immediate() &&
+             !next_work_info.delayed_run_time.is_max()) {
+           const auto delay = next_work_info.delayed_run_time -
+                              base::TimeTicks::Now();
+@@ -100,6 +118,7 @@
+ 
+   const float max_time_slice_;
+   CefRefPtr<CefBrowserProcessHandler> handler_;
++  const bool yield_to_host_;
+ };
+ 
+ CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() {
