@@ -29,3 +29,12 @@ patched candidate libcef SHA256 is
 
 Runtime evaluation is recorded separately in the consumer benchmark repository.
 Compilation and ABI smoke checks alone do not establish a frame-pacing benefit.
+
+A/B/B/A runtime samples (30 s, requested 4 Mframes/s WebSocket, hardware WebGPU
+compute, GTK reader, identical executable) observed finalization maxima of
+42.42 / 18.54 / 15.78 / 41.75 ms. Foreground cppgc task maxima were
+43.61 / 18.97 / 16.12 / 42.72 ms. No stream gaps or JavaScript errors occurred.
+The last baseline had the fewest RAF outliers, so overall smoothness is not
+established and this overlay remains experimental. Full delivery rates, host
+load, method and limitations are in the consumer report:
+https://github.com/okhsunrog/slint_realtime_plotting_experiments/blob/feat/tauri-cef-wayland/tauri-webgpu/CPPGC_VALIDATION.md.
