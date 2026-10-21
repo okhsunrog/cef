@@ -90,7 +90,9 @@ pending protocol events on the same context. It never holds another prepared
 reader across GTK polling. Owned displays and embedders with custom polling
 loops retain the existing watcher behavior. The switch does not change the C API.
 
-Tauri's GTK4 Wayland backend requests this switch automatically. Do not enable
+This path remains opt-in: paired runtime tests did not establish a consistent
+frame-pacing improvement. A Tauri embedder can request it with
+`Cef::command_line_arg("--wayland-external-reader", None::<String>)`. Do not enable
 it for the standalone `cefembed_wayland` custom polling loop.
 
 The `validated/` directory remains the original published baseline. The reader
