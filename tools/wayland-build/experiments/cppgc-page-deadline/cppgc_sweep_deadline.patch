@@ -1,0 +1,13 @@
+--- a/v8/src/heap/cppgc-internal/sweeper.cc
++++ b/v8/src/heap/cppgc-internal/sweeper.cc
+@@ -56,7 +56,9 @@
+   }
+ 
+  private:
+-  static constexpr size_t kInterval = 4;
++  // Finalizing one page can be costly. Honor the deadline after every page,
++  // including when each space has fewer than four pages to finalize.
++  static constexpr size_t kInterval = 1;
+ 
+   const v8::base::TimeTicks end_;
+   size_t count_ = 0;
